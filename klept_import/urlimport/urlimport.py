@@ -43,7 +43,7 @@ class UrlMetaFinder(importlib.abc.MetaPathFinder):
         if path is None:
             baseurl = self._baseurl
         else:
-            if not path[0].statrswith(self._baseurl):
+            if not path[0].startswith(self._baseurl):
                 return None
             baseurl = path[0]
 
@@ -135,3 +135,36 @@ class UrlModuleLoader(importlib.abc.SourceLoader):
 
     def is_package(self, fullname):
         return False
+
+
+# Package loader for a URL
+class UrlPackageLoader(UrlModuleLoader):
+    def load_module(self, fullname):
+        mod = super().load_module(fullname)
+        mod.__path__ = [self._baseurl]
+        mod.__package__ = fullname
+
+    def get_filename(self, fullname):
+        return self._baseurl + "/" + "__init__.py"
+
+    def is_package(self, fullname):
+        return True
+
+
+# Utility functions for installing/uninstalling the loader
+_installed_meta_cache = {}
+
+
+def install_meta(address):
+    if address not in _installed_meta_cache:
+        finder = UrlMetaFinder(address)
+        _installed_meta_cache[address] = finder
+        sys.meta_path.append(finder)
+        log.debug("%r installed on sys.meta_path", finder)
+
+
+def remove_meta(address):
+    if address in _installed_meta_cache:
+        finder = _installed_meta_cache.pop(address)
+        sys.meta_path.remove(finder)
+        log.debug("%r removed from sys.meta_path", finder)
